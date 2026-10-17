@@ -19,6 +19,14 @@ It works around old games that crash when the driver reports modes out of order.
 - `d3d9_sortmodes.ini` — default settings.
 - `Makefile` — build, install and clean. The build produces `d3d9.dll`, which is not checked in.
 
+## Download
+
+Prebuilt DLLs are on the [Releases](https://github.com/vladimir-djokic/dirt-d3d9-sortmodes/releases) page. GitHub Actions builds them from this repository's source. Each release lists the SHA-256 checksum and a VirusTotal scan link. To confirm a DLL was built here, run:
+
+```bash
+gh attestation verify d3d9.dll -R vladimir-djokic/dirt-d3d9-sortmodes
+```
+
 ## Install
 
 Run `mingw32-make install`, or copy `d3d9.dll` next to the game's exe by hand. Optionally add `d3d9_sortmodes.ini` there too:

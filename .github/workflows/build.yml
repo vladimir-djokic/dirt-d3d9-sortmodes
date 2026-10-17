@@ -1,0 +1,151 @@
+# Builds d3d9.dll on every push and pull request.
+# Pushing a tag such as v1.0.0 also attests the build, scans the DLL on
+# VirusTotal and publishes a GitHub release with the checksum and scan link.
+#
+# Needs the repository secret VT_API_KEY, a free VirusTotal API key.
+
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Same 32-bit toolchain as used for local builds.
+  WINLIBS_URL: https://github.com/brechtsanders/winlibs_mingw/releases/download/16.2.0posix-14.0.0-msvcrt-r2/winlibs-i686-posix-dwarf-gcc-16.2.0-mingw-w64msvcrt-14.0.0-r2.zip
+  WINLIBS_SHA256: f1fab67fbe6ed1b0a390d06db6af8b4f0ca25fceab4f51bac2a88af8b81a93ec
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      id-token: write       # build attestation
+      attestations: write   # build attestation
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore 32-bit MinGW-w64 from cache
+        id: mingw-cache
+        uses: actions/cache@v4
+        with:
+          path: C:\mingw32
+          key: winlibs-i686-gcc-16.2.0-msvcrt-r2
+
+      - name: Download 32-bit MinGW-w64 (WinLibs)
+        if: steps.mingw-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP 'winlibs.zip'
+          Invoke-WebRequest -Uri $env:WINLIBS_URL -OutFile $zip
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne $env:WINLIBS_SHA256) { throw "WinLibs checksum mismatch: $hash" }
+          7z x $zip -oC:\ -y | Out-Null
+
+      - name: Build d3d9.dll
+        shell: cmd
+        run: C:\mingw32\bin\mingw32-make.exe MINGW=C:/mingw32
+
+      - name: Check the DLL
+        shell: pwsh
+        run: |
+          $headers = & C:\mingw32\bin\objdump.exe -p d3d9.dll | Out-String
+          if ((& C:\mingw32\bin\objdump.exe -f d3d9.dll | Out-String) -notmatch 'pei-i386') { throw 'd3d9.dll is not a 32-bit DLL' }
+          if ($headers -notmatch '\sDirect3DCreate9\r?\n') { throw 'd3d9.dll does not export Direct3DCreate9' }
+          $imports = [regex]::Matches($headers, 'DLL Name: (\S+)') | ForEach-Object { $_.Groups[1].Value.ToLower() } | Sort-Object -Unique
+          $unexpected = $imports | Where-Object { $_ -notin @('kernel32.dll', 'msvcrt.dll') }
+          if ($unexpected) { throw "Unexpected DLL dependencies: $($unexpected -join ', ')" }
+          "Imports: $($imports -join ', ')"
+
+      - name: Write checksums
+        shell: pwsh
+        run: |
+          $lines = foreach ($f in 'd3d9.dll', 'd3d9_sortmodes.ini') {
+            '{0}  {1}' -f (Get-FileHash $f -Algorithm SHA256).Hash.ToLower(), $f
+          }
+          $lines | Set-Content SHA256SUMS.txt -Encoding ascii
+          Get-Content SHA256SUMS.txt
+
+      - name: Attest build provenance
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            d3d9.dll
+            d3d9_sortmodes.ini
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dirt-d3d9-sortmodes
+          path: |
+            d3d9.dll
+            d3d9_sortmodes.ini
+            SHA256SUMS.txt
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the release
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dirt-d3d9-sortmodes
+
+      - name: Scan d3d9.dll on VirusTotal
+        id: virustotal
+        uses: crazy-max/ghaction-virustotal@v4
+        with:
+          vt_api_key: ${{ secrets.VT_API_KEY }}
+          files: d3d9.dll
+          request_rate: 4   # free API limit: 4 requests per minute
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          VT_ANALYSIS: ${{ steps.virustotal.outputs.analysis }}
+        run: |
+          {
+            echo "Built by GitHub Actions from commit ${GITHUB_SHA::7} with 32-bit MinGW-w64 GCC 16.2.0."
+            echo
+            echo "**AI disclosure:** the diagnosis and code were produced with Claude Code (Claude Opus 5.5). See the README for details."
+            echo
+            echo "## Files"
+            echo
+            echo "- \`d3d9.dll\`: the proxy. Copy it next to \`DiRT.exe\`."
+            echo "- \`d3d9_sortmodes.ini\`: default settings. Copy it next to \`d3d9.dll\`."
+            echo
+            echo "## SHA-256"
+            echo
+            echo '```'
+            cat SHA256SUMS.txt
+            echo '```'
+            echo
+            echo "## Verify that GitHub built this DLL from this repository"
+            echo
+            echo '```'
+            echo "gh attestation verify d3d9.dll -R ${GH_REPO}"
+            echo '```'
+            echo
+            echo "## VirusTotal"
+            echo
+            IFS=',' read -ra entries <<< "$VT_ANALYSIS"
+            for entry in "${entries[@]}"; do
+              echo "- [${entry%%=*}](${entry#*=})"
+            done
+            echo
+            echo "A small unsigned DLL that wraps Windows' d3d9.dll can trigger a few heuristic detections. The source and the build attestation above show exactly what it contains."
+          } > notes.md
+          cat notes.md
+          gh release create "$TAG" d3d9.dll d3d9_sortmodes.ini SHA256SUMS.txt \
+            --title "$TAG" --notes-file notes.md --verify-tag

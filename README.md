@@ -4,7 +4,7 @@
 >
 > - **Tool:** [Claude Code](https://claude.com/claude-code) by Anthropic, in the Claude desktop app.
 > - **Models:** Claude Opus 5.5 (`claude-opus-5-5`) did the WinDbg crash-dump analysis, found the root causes and wrote the proxy, Makefile and documentation. Claude Fable 5.1 (`claude-fable-5-1`) did the first look at the crash logs.
-> - **What it found:** DiRT has two separate bugs triggered by a TV that reports a long, unsorted mode list. It crashes when modes arrive out of order. A long list also overflows its 100 KB hardware-settings memory pool, so the audio settings are lost and the game crashes at startup.
+> - **What it found:** DiRT has two separate bugs triggered by a TV that reports a long, unsorted mode list. It crashes when modes arrive out of order. A long list also overflows its 100 KB hardware-settings memory pool, so the audio settings are lost and the game crashes at startup. A third, unrelated bug crashes the game when a race loads on CPUs with many threads. This DLL doesn't fix that one, so see [Also needed: the CPU core-count fix](#also-needed-the-cpu-core-count-fix).
 >
 > Review the code before you use it, as you would any third-party DLL.
 
@@ -41,6 +41,34 @@ log=1                ; write the mode list to d3d9_sortmodes.log
 `refresh` matters for DiRT. The game keeps its detected mode list in a fixed 100 KB memory pool. A display reporting hundreds of modes fills it, the audio settings after it are lost, and the game crashes at startup.
 
 To uninstall, delete `d3d9.dll`, plus the `.ini` and `.log` files if present.
+
+## Also needed: the CPU core-count fix
+
+This DLL gets DiRT to the menus. On a modern CPU, the game can still crash as soon as a race loads. That's a separate bug, and you fix it by editing one line in the game's own files.
+
+**Cause:** DiRT picks a thread layout from the number of logical processors it detects. With 8 or more, it uses its 8-core layout. On a Ryzen 7 5700X (8 cores, 16 threads), that layout makes a background task request entry 2 of a table that holds only one entry, and the game crashes during race loading. The game's 4-core layout avoids it.
+
+**Fix:** back up the files first. Then, in the DiRT folder, open `system\hardware_settings_restrictions.xml` and find the rule for 8 or more cores:
+
+```xml
+<restrict_if name="cores" op="int_ge" value="8">
+```
+
+Replace the `threadStrategy` line under it with the 4-core line from the same file. Change this line:
+
+```xml
+<threadStrategy parallelUpdateRender="true" workerMapFile="system/workerMap8Core.xml" forceFeedbackProcessor="3" dvdStorageProcessor="4" dataSetMonitorProcessor="5" renderProcessor="0" updateProcessor="2" fileStreamProcessor="7" />
+```
+
+to this:
+
+```xml
+<threadStrategy parallelUpdateRender="true" workerMapFile="system/workerMap4Core.xml" forceFeedbackProcessor="3" dvdStorageProcessor="3" dataSetMonitorProcessor="3" renderProcessor="0" updateProcessor="2" fileStreamProcessor="3" />
+```
+
+Make the same change to the `threadStrategy` line in DiRT's saved settings file, `hardware_settings_config.xml`. In the Steam version it's in the `hardwaresettings` folder inside the game folder. Changing the rule alone isn't enough, because the game keeps using the layout in the saved settings until it rewrites them.
+
+Steam's "Verify integrity of game files" restores the original rules file. If races crash again after a verify, redo the edit.
 
 ## Build
 

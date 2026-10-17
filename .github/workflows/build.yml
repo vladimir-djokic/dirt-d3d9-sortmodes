@@ -66,7 +66,7 @@ jobs:
       - name: Write checksums
         shell: pwsh
         run: |
-          $lines = foreach ($f in 'd3d9.dll', 'd3d9_sortmodes.ini') {
+          $lines = foreach ($f in 'd3d9.dll', 'd3d9_sortmodes.ini', 'd3d9_sortmodes.grid.ini') {
             '{0}  {1}' -f (Get-FileHash $f -Algorithm SHA256).Hash.ToLower(), $f
           }
           # Unix line endings, so `sha256sum -c SHA256SUMS.txt` works everywhere.
@@ -80,6 +80,7 @@ jobs:
           subject-path: |
             d3d9.dll
             d3d9_sortmodes.ini
+            d3d9_sortmodes.grid.ini
 
       - uses: actions/upload-artifact@v7
         with:
@@ -87,6 +88,7 @@ jobs:
           path: |
             d3d9.dll
             d3d9_sortmodes.ini
+            d3d9_sortmodes.grid.ini
             SHA256SUMS.txt
           if-no-files-found: error
 
@@ -123,7 +125,10 @@ jobs:
             echo "## Files"
             echo
             echo "- \`d3d9.dll\`: the proxy. Copy it next to the game exe: \`DiRT.exe\` for DiRT (2007) or \`grid.exe\` for GRID (2008)."
-            echo "- \`d3d9_sortmodes.ini\`: default settings. Copy it next to \`d3d9.dll\` and adjust it for your game."
+            echo "- \`d3d9_sortmodes.ini\`: default settings for DiRT. Copy it next to \`d3d9.dll\`."
+            echo "- \`d3d9_sortmodes.grid.ini\`: default settings for GRID. Copy it next to \`d3d9.dll\` and rename it to \`d3d9_sortmodes.ini\`."
+            echo
+            echo "In either file, set \`refresh\` to the refresh rate in the game's settings, or the game falls back to a lower resolution."
             echo
             echo "Each game also needs one edit to its own files. See [Which fixes each game needs](https://github.com/${GH_REPO}#which-fixes-each-game-needs) in the README."
             echo
@@ -148,5 +153,5 @@ jobs:
             echo "A small unsigned DLL that wraps Windows' d3d9.dll can trigger a few heuristic detections. The source and the build attestation above show exactly what it contains."
           } > notes.md
           cat notes.md
-          gh release create "$TAG" d3d9.dll d3d9_sortmodes.ini SHA256SUMS.txt \
+          gh release create "$TAG" d3d9.dll d3d9_sortmodes.ini d3d9_sortmodes.grid.ini SHA256SUMS.txt \
             --title "$TAG" --notes-file notes.md --verify-tag

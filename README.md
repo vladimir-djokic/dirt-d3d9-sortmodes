@@ -29,7 +29,8 @@ Both are tested with the Steam versions on a Ryzen 7 5700X (8 cores, 16 threads)
 
 - `d3d9_sortmodes.cpp` — the proxy, about 200 lines.
 - `d3d9.def` — the exported functions.
-- `d3d9_sortmodes.ini` — default settings.
+- `d3d9_sortmodes.ini` — default settings for DiRT.
+- `d3d9_sortmodes.grid.ini` — default settings for GRID. Install it as `d3d9_sortmodes.ini`.
 - `Makefile` — build, install and clean. The build produces `d3d9.dll`, which is not checked in.
 
 ## Download
@@ -42,7 +43,12 @@ gh attestation verify d3d9.dll -R vladimir-djokic/dirt-d3d9-sortmodes
 
 ## Install
 
-Copy `d3d9.dll` and `d3d9_sortmodes.ini` next to the game's exe, or run `mingw32-make install` (see [Build](#build)). Then set up `d3d9_sortmodes.ini` for your game:
+Run `mingw32-make install-dirt` or `mingw32-make install-grid` (see [Build](#build)). Or copy these files next to the game's exe by hand:
+
+- `d3d9.dll`.
+- The game's settings file, saved as `d3d9_sortmodes.ini`. That's `d3d9_sortmodes.ini` for DiRT, or `d3d9_sortmodes.grid.ini` renamed for GRID.
+
+Then check the settings file. These are the available options:
 
 ```ini
 [modes]
@@ -98,7 +104,7 @@ Steam's "Verify integrity of game files" restores the original rules file. If ra
 
 ## GRID (2008)
 
-Recommended `d3d9_sortmodes.ini`, with `refresh` matching your in-game rate:
+Recommended `d3d9_sortmodes.ini`, with `refresh` matching your in-game rate. It's the same as `d3d9_sortmodes.grid.ini` in this repository, except that file defaults to `refresh=60`:
 
 ```ini
 [modes]
@@ -134,20 +140,23 @@ GRID re-detects your hardware on the next launch, and the full list appears in i
 Use 32-bit MinGW-w64, for example WinLibs i686, unpacked to `C:\mingw32`. It includes GNU Make as `mingw32-make`. Run these from the project folder in PowerShell, Command Prompt or Git Bash:
 
 ```bash
-C:\mingw32\bin\mingw32-make.exe            # build d3d9.dll
-C:\mingw32\bin\mingw32-make.exe install    # copy it into DiRT's folder
-C:\mingw32\bin\mingw32-make.exe clean      # delete the build
+C:\mingw32\bin\mingw32-make.exe                  # build d3d9.dll
+C:\mingw32\bin\mingw32-make.exe install-dirt     # install into DiRT's Steam folder
+C:\mingw32\bin\mingw32-make.exe install-grid     # install into GRID's Steam folder
+C:\mingw32\bin\mingw32-make.exe clean            # delete the build
 ```
 
-`install` targets DiRT's Steam folder by default. For GRID, or a game in another location, pass `GAME_DIR`:
+`install-dirt` and `install-grid` are shortcuts for `install GAME=dirt` and `install GAME=grid`. For a game outside the default Steam library, pass `GAME_DIR`:
 
 ```bash
-C:\mingw32\bin\mingw32-make.exe GAME_DIR="C:\Program Files (x86)\Steam\steamapps\common\Grid" install
+C:\mingw32\bin\mingw32-make.exe install GAME=grid GAME_DIR="D:\SteamLibrary\steamapps\common\Grid"
 ```
 
-- `install` also copies the default `d3d9_sortmodes.ini`, but only when the game folder has none yet, so your settings are never overwritten. Adjust it for your game afterwards.
-- Set `MINGW` if your compiler isn't in `C:\mingw32`, for example `MINGW=D:/tools/mingw32`.
-- The build stops with an error if `MINGW` points at a 64-bit compiler, because both games are 32-bit.
+- **Settings are never overwritten.** `install` copies the game's default settings file as `d3d9_sortmodes.ini`, but only when the game folder has none yet. Afterwards, set `refresh` to your in-game refresh rate.
+- **Wrong folders are caught.** `install` stops with an error unless the game's exe, `DiRT.exe` or `grid.exe`, is in the target folder.
+- **Other Steam libraries:** set `STEAM_COMMON` if all your games are in another library, for example `STEAM_COMMON="D:\SteamLibrary\steamapps\common"`.
+- **Other compiler locations:** set `MINGW` if your compiler isn't in `C:\mingw32`, for example `MINGW=D:/tools/mingw32`.
+- **64-bit compilers are rejected.** The build stops with an error if `MINGW` points at one, because both games are 32-bit.
 
 The result depends only on `KERNEL32.dll` and `msvcrt.dll`, which ship with Windows.
 

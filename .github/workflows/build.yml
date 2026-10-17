@@ -122,8 +122,10 @@ jobs:
             echo
             echo "## Files"
             echo
-            echo "- \`d3d9.dll\`: the proxy. Copy it next to \`DiRT.exe\`."
-            echo "- \`d3d9_sortmodes.ini\`: default settings. Copy it next to \`d3d9.dll\`."
+            echo "- \`d3d9.dll\`: the proxy. Copy it next to the game exe: \`DiRT.exe\` for DiRT (2007) or \`grid.exe\` for GRID (2008)."
+            echo "- \`d3d9_sortmodes.ini\`: default settings. Copy it next to \`d3d9.dll\` and adjust it for your game."
+            echo
+            echo "Each game also needs one edit to its own files. See [Which fixes each game needs](https://github.com/${GH_REPO}#which-fixes-each-game-needs) in the README."
             echo
             echo "## SHA-256"
             echo

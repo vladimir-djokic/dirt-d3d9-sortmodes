@@ -69,7 +69,8 @@ jobs:
           $lines = foreach ($f in 'd3d9.dll', 'd3d9_sortmodes.ini') {
             '{0}  {1}' -f (Get-FileHash $f -Algorithm SHA256).Hash.ToLower(), $f
           }
-          $lines | Set-Content SHA256SUMS.txt -Encoding ascii
+          # Unix line endings, so `sha256sum -c SHA256SUMS.txt` works everywhere.
+          [IO.File]::WriteAllText("$PWD/SHA256SUMS.txt", ($lines -join "`n") + "`n")
           Get-Content SHA256SUMS.txt
 
       - name: Attest build provenance
@@ -113,7 +114,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
-          VT_ANALYSIS: ${{ steps.virustotal.outputs.analysis }}
         run: |
           {
             echo "Built by GitHub Actions from commit ${GITHUB_SHA::7} with 32-bit MinGW-w64 GCC 16.2.0."
@@ -139,10 +139,9 @@ jobs:
             echo
             echo "## VirusTotal"
             echo
-            IFS=',' read -ra entries <<< "$VT_ANALYSIS"
-            for entry in "${entries[@]}"; do
-              echo "- [${entry%%=*}](${entry#*=})"
-            done
+            # Link by file hash: permanent, and always shows the latest scan.
+            dll_sha256=$(grep " d3d9.dll$" SHA256SUMS.txt | cut -c1-64)
+            echo "- [d3d9.dll](https://www.virustotal.com/gui/file/$dll_sha256). The first scan can take a few minutes to finish."
             echo
             echo "A small unsigned DLL that wraps Windows' d3d9.dll can trigger a few heuristic detections. The source and the build attestation above show exactly what it contains."
           } > notes.md

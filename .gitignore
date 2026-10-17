@@ -1,0 +1,5 @@
+# Build output
+d3d9.dll
+*.o
+# Runtime log written next to the DLL
+d3d9_sortmodes.log

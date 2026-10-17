@@ -29,11 +29,11 @@ jobs:
       id-token: write       # build attestation
       attestations: write   # build attestation
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Restore 32-bit MinGW-w64 from cache
         id: mingw-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: C:\mingw32
           key: winlibs-i686-gcc-16.2.0-msvcrt-r2
@@ -74,13 +74,13 @@ jobs:
 
       - name: Attest build provenance
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             d3d9.dll
             d3d9_sortmodes.ini
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dirt-d3d9-sortmodes
           path: |
@@ -96,13 +96,13 @@ jobs:
     permissions:
       contents: write   # create the release
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dirt-d3d9-sortmodes
 
       - name: Scan d3d9.dll on VirusTotal
         id: virustotal
-        uses: crazy-max/ghaction-virustotal@v4
+        uses: crazy-max/ghaction-virustotal@v5
         with:
           vt_api_key: ${{ secrets.VT_API_KEY }}
           files: d3d9.dll

@@ -1,8 +1,9 @@
 // dirt-d3d9-sortmodes: a minimal Direct3D 9 proxy DLL.
 //
-// Old games such as Colin McRae: DiRT (2007) build a sorted list of display
-// modes and crash when the driver reports them out of order (for example an
-// LG TV listing 1600x1200 after 2560x1600). This proxy loads the real d3d9.dll
+// Old games such as Colin McRae: DiRT (2007) and Race Driver: GRID (2008) break
+// on displays that report many modes. DiRT builds a sorted list and crashes
+// when the driver reports modes out of order (for example an LG TV listing
+// 1600x1200 after 2560x1600). This proxy loads the real d3d9.dll
 // from the Windows system folder, passes every call straight through, and only
 // changes IDirect3D9::GetAdapterModeCount / EnumAdapterModes so that modes are
 // returned sorted by width, height and refresh rate.
@@ -13,9 +14,11 @@
 //   refresh=60         ; list each resolution once, at the rate closest to this
 //   log=1              ; write the returned mode lists to d3d9_sortmodes.log
 //
-// The refresh option exists because DiRT stores the detected mode list in a
-// fixed 100 KB memory pool. A TV reporting hundreds of modes fills it, and the
-// audio settings that come after it are silently lost, which crashes the game.
+// The refresh and only_aspect options exist because both games store the
+// detected mode list in a small fixed memory pool (100 KB in DiRT, 16 KB in
+// GRID). A TV reporting hundreds of modes fills it, and the settings that come
+// after it are silently lost, which crashes the game. Set refresh to the rate
+// saved in the game's settings, or the game falls back to a lower resolution.
 //
 // Build (32-bit MinGW-w64):
 //   g++ -O2 -shared -static -s -o d3d9.dll d3d9_sortmodes.cpp d3d9.def -luuid
